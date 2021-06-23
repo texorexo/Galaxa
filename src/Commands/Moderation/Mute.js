@@ -2,7 +2,7 @@
 const { Command } = require('discord-akairo');
 const { MessageEmbed } = require('discord.js');
 const { create } = require('sourcebin');
-const Strike = require('../../MongoDB/Models/Srtrikes')
+const Strike = require('../../MongoDB/Models/Srtrikes');
 
 module.exports = class extends Command {
 
@@ -175,7 +175,7 @@ module.exports = class extends Command {
 			return message.reply('NoVerifyRoleException: No Verify Role found.', NoVerifyRoleException);
 		}
 
-		const strikes = Strike.get({ user: args.user.id }).gte(Date.now()).lt(Date.now() - (7 * 24 * 60 * 60))
+		const strikes = Strike.get({ user: args.user.id }).gte(Date.now()).lt(Date.now() - (7 * 24 * 60 * 60));
 
 		if (strikes.length >= 4) {
 			const StrikeWarning = new MessageEmbed()
