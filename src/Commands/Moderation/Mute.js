@@ -2,7 +2,8 @@
 const { Command } = require('discord-akairo');
 const { MessageEmbed } = require('discord.js');
 const { create } = require('sourcebin');
-const Strike = require('../../MongoDB/Models/Srtrikes');
+const ms = require('ms');
+const Punishment = require('../../MongoDB/Models/Punishments');
 
 module.exports = class extends Command {
 
@@ -20,17 +21,17 @@ module.exports = class extends Command {
 				},
 				{
 					id: 'reason',
-					match: 'restww'
+					match: 'rest'
 				}
 			],
-			clientPermissions: ['MANAGE_ROLES', 'BAN_MEMBERS', 'KICK_MEMBERS'],
+			clientPermissions: ['MANAGE_ROLES', 'SEND_MESSAGES'],
 			category: 'Moderation',
 			description: 'Mute users in the server.',
 			argumentDefaults: {
 				prompt: {
 					retries: 2,
 					time: 5000,
-					start: 'Extra arguments are requires, please enter them now.'
+					start: 'Extra arguments are required, please enter them now.'
 				}
 			}
 		});
@@ -43,36 +44,27 @@ module.exports = class extends Command {
 			)
 		) {
 			return 'Ship Moderators';
-		}
-
-		if (
+		} else if (
 			!message.member.roles.cache.some(
 				(role) => role.name === 'Ship Administrators'
 			)
 		) {
 			return 'Ship Administrators';
-		}
-
-		if (
+		} else if (
 			!message.member.roles.cache.some(
 				(role) => role.name === 'Ship Vice Captain'
 			)
 		) {
 			return 'Ship Vice Captain';
-		}
-
-		if (
+		} else if (
 			!message.member.roles.cache.some((role) => role.name === 'Ship Captain')
 		) {
 			return 'Ship Captain';
-		}
-
-		return null;
+		} else { return null; }
 	}
 
 	// eslint-disable-next-line consistent-return
 	async exec(message, args) {
-		console.log(args);
 		if (!args.user) {
 			const muteEmbed = new MessageEmbed()
 				.setTitle('mute')
@@ -175,7 +167,7 @@ module.exports = class extends Command {
 			return message.reply('NoVerifyRoleException: No Verify Role found.', NoVerifyRoleException);
 		}
 
-		const strikes = Strike.get({ user: args.user.id }).gte(Date.now()).lt(Date.now() - (7 * 24 * 60 * 60));
+		const strikes = Punishment.get({ user: args.user.id }).gte(Date.now()).lt(Date.now() - (7 * 24 * 60 * 60));
 
 		if (strikes.length >= 4) {
 			const StrikeWarning = new MessageEmbed()
@@ -196,6 +188,56 @@ module.exports = class extends Command {
 				.setFooter('Galaxa 3 | Under GPLv3');
 			message.reply(StrikeWarning);
 		}
+
+		if (args.member.roles.cache.find(muteRole)) {
+			const UserAlreadyMutedExeption = new MessageEmbed()
+				.setTitle('UserAlreadyMutedException: User already has the `Muted` role.')
+				.setColor('#db1c07')
+				.setDescription('The user has already been muted. Please select an unmuted user and try again.')
+				.setTimestamp()
+				.setAuthor('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+			return message.reply('UserAlreadyMutedException: User already has the `Muted` role.', UserAlreadyMutedExeption);
+		}
+
+		if (!args.member.roles.cache.find(verifiedRole)) {
+			const UserNotVerifiedException = new MessageEmbed()
+				.setTitle('UserNotVerifiedException: User is not verified')
+				.setColor('#db1c07')
+				.setDescription('The user you selected does not have been verified.')
+				.setTimestamp()
+				.setAuthor('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+			return message.reply('UserNotVerifiedException: User is not verified.', UserNotVerifiedException);
+		}
+
+		const punishment = new Punishment({
+			type: 'MUTE',
+			user: args.member.id,
+			reason: args.reason
+		});
+
+		args.member.roles.remove(verifiedRole);
+		args.member.roles.add(muteRole);
+
+		const MuteUserSuccess = new MessageEmbed()
+			.setTitle('Successfully muted user.')
+			.setAuthor(args.member.tag, args.member.displayAvatarURL())
+			.setColor('#10B981')
+			.setDescription(`${args.member.tag} has been muted successfully with the Punishment ID: ${punishment._id}`)
+			.setTimestamp()
+			.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+		message.channel.send(MuteUserSuccess);
+
+		this.util.logger(message, {
+			type: 'MUTE',
+			user: args.member,
+			reason: ms(args.duration),
+			by: message.author
+		});
+
+		setTimeout(() => {
+			args.member.roles.remove(muteRole);
+			args.member.roles.add(verifiedRole);
+		}, ms(args.duration));
 	}
 
 };

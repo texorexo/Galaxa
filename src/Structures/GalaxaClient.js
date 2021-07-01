@@ -1,4 +1,5 @@
 const { AkairoClient, ListenerHandler, CommandHandler } = require('discord-akairo');
+const Util = require('./Utils');
 const { join } = require('path');
 
 module.exports = class GalaxaClient extends AkairoClient {
@@ -12,6 +13,9 @@ module.exports = class GalaxaClient extends AkairoClient {
 				partials: ['USER', 'CHANNEL', 'REACTION', 'GUILD_MEMBER', 'MESSAGE']
 			}
 		);
+
+		this.client.util = new Util(this.client);
+
 		this.validate(options);
 
 		this.CommandHandler = new CommandHandler(this, {
