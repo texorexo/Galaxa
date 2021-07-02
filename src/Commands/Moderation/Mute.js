@@ -2,65 +2,58 @@
 const { Command } = require('discord-akairo');
 const { MessageEmbed } = require('discord.js');
 const { create } = require('sourcebin');
+const moment = require('moment');
 const ms = require('ms');
 const Punishment = require('../../MongoDB/Models/Punishments');
 
-module.exports = class extends Command {
+module.exports = class Mute extends Command {
 
 	constructor() {
 		super('mute', {
 			aliases: ['mute', 'sush', 'silence'],
+			description: {
+				content: 'Mutes selected users in the server.',
+				usage: '<user> [duration, defaults to 1 hour] [reason]'
+			},
+			channel: 'guild',
 			args: [
 				{
 					id: 'user',
-					type: 'member'
+					type: 'member',
+					prompt: {
+						start: 'Which user do you want to mute? Please mention them or respond with their ID.',
+						retry: 'Tough luck, that user isint found, try again.'
+					}
 				},
 				{
 					id: 'duration',
-					type: 'lowercase'
+					type: 'lowercase',
+					default: '1h'
 				},
 				{
 					id: 'reason',
-					match: 'rest'
+					match: 'rest',
+					default: 'No reason defined'
 				}
 			],
-			clientPermissions: ['MANAGE_ROLES', 'SEND_MESSAGES'],
-			category: 'Moderation',
-			description: 'Mute users in the server.',
-			argumentDefaults: {
-				prompt: {
-					retries: 2,
-					time: 5000,
-					start: 'Extra arguments are required, please enter them now.'
-				}
-			}
+			clientPermissions: ['MANAGE_ROLES', 'SEND_MESSAGES']
 		});
 	}
 
-	condition(message) {
-		if (
-			!message.member.roles.cache.some(
-				(role) => role.name === 'Ship Moderators'
-			)
-		) {
+	userPermissions(message) {
+		if (message.member.roles.cache.has((role) => role.name === 'Ship Moderators')) {
 			return 'Ship Moderators';
-		} else if (
-			!message.member.roles.cache.some(
-				(role) => role.name === 'Ship Administrators'
-			)
-		) {
+		}
+		if (message.member.roles.cache.has((role) => role.name === 'Ship Administrators')) {
 			return 'Ship Administrators';
-		} else if (
-			!message.member.roles.cache.some(
-				(role) => role.name === 'Ship Vice Captain'
-			)
-		) {
+		}
+		if (message.member.roles.cache.has((role) => role.name === 'Ship Vice Captain')) {
 			return 'Ship Vice Captain';
-		} else if (
-			!message.member.roles.cache.some((role) => role.name === 'Ship Captain')
-		) {
+		}
+		if (message.member.roles.cache.has((role) => role.name === 'Ship Captain')) {
 			return 'Ship Captain';
-		} else { return null; }
+		}
+		return null;
 	}
 
 	// eslint-disable-next-line consistent-return
@@ -108,7 +101,7 @@ module.exports = class extends Command {
 			);
 		}
 
-		if (args.duration) args.duration = '1h';
+		if (!args.duration) args.duration = '1h';
 
 		if (!args.reason) args.reason = `No reason defined by ${message.author}.`;
 
@@ -123,8 +116,8 @@ module.exports = class extends Command {
 			return message.reply('ReasonIdentifierNotCurrentlySupportedException: Reason Identifier not currently supported.', ReasonIdentifierNotCurrentlySupportedException);
 		}
 
-		const muteRole = message.guild.roles.cache.get(role => role.find('Muted'));
-		const verifiedRole = message.guild.roles.cache.get(role => role.find('Space Cadets'));
+		const muteRole = message.guild.roles.cache.find(role => role.name === 'Muted');
+		const verifiedRole = message.guild.roles.cache.find(role => role.name === 'Space Cadets');
 
 		if (!muteRole) {
 			try {
@@ -167,29 +160,32 @@ module.exports = class extends Command {
 			return message.reply('NoVerifyRoleException: No Verify Role found.', NoVerifyRoleException);
 		}
 
-		const strikes = Punishment.get({ user: args.user.id }).gte(Date.now()).lt(Date.now() - (7 * 24 * 60 * 60));
+		const strikes = await Punishment.find({ user: args.user.id, createdAt: { $gte: moment().startOf('day').toDate(), $lte: moment().endOf('week').toDate() } }).exec();
 
-		if (strikes.length >= 4) {
+
+		if ((strikes.length + 1) >= 5) {
+			const StrikeWarning = new MessageEmbed()
+				.setTitle('Selected User has reached maximum strikes')
+				.setColor('#DC2626')
+				.setAuthor(args.user.tag, args.user.user.displayAvatarURL())
+				.setDescription('The selected user has already recieved 4 strikes within the last 2 weeks. Immediate ban to user for a month is recomended.')
+				.addField('User\'s current strike count', strikes.length)
+				.setTimestamp()
+				.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+			message.reply(StrikeWarning);
+		} else if ((strikes.length + 1) >= 4) {
 			const StrikeWarning = new MessageEmbed()
 				.setTitle('Selected User has reached 4 strikes')
 				.setColor('#FBBF24')
-				.setAuthor(args.member.tag, args.member.displayAvatarURL())
+				.setAuthor(args.user.tag, args.user.user.displayAvatarURL())
 				.setDescription('The selected user has already recieved 4 strikes within the last 2 weeks. Suggested to kick the user.')
+				.addField('User\'s current strike count', strikes.length)
 				.setTimestamp()
-				.setFooter('Galaxa 3 | Under GPLv3');
-			message.reply(StrikeWarning);
-		} else if (strikes.length >= 5) {
-			const StrikeWarning = new MessageEmbed()
-				.setTitle('Selected User has reached maximum strikes')
-				.setColor('#FBBF24')
-				.setAuthor(args.member.tag, args.member.displayAvatarURL())
-				.setDescription('The selected user has already recieved 4 strikes within the last 2 weeks. Immediate ban to user for a month is recomended.')
-				.setTimestamp()
-				.setFooter('Galaxa 3 | Under GPLv3');
+				.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
 			message.reply(StrikeWarning);
 		}
 
-		if (args.member.roles.cache.find(muteRole)) {
+		if (args.user.roles.cache.has(muteRole.id)) {
 			const UserAlreadyMutedExeption = new MessageEmbed()
 				.setTitle('UserAlreadyMutedException: User already has the `Muted` role.')
 				.setColor('#db1c07')
@@ -199,7 +195,7 @@ module.exports = class extends Command {
 			return message.reply('UserAlreadyMutedException: User already has the `Muted` role.', UserAlreadyMutedExeption);
 		}
 
-		if (!args.member.roles.cache.find(verifiedRole)) {
+		if (!args.user.roles.cache.has(verifiedRole.id)) {
 			const UserNotVerifiedException = new MessageEmbed()
 				.setTitle('UserNotVerifiedException: User is not verified')
 				.setColor('#db1c07')
@@ -210,33 +206,81 @@ module.exports = class extends Command {
 		}
 
 		const punishment = new Punishment({
-			type: 'MUTE',
-			user: args.member.id,
+			type: 1,
+			user: args.user.id,
 			reason: args.reason
 		});
 
-		args.member.roles.remove(verifiedRole);
-		args.member.roles.add(muteRole);
+		await args.user.roles.remove(verifiedRole);
+		await args.user.roles.add(muteRole);
+
+		await punishment.save((err) => {
+			if (err) {
+				throw new Error(err);
+			}
+		});
+
+		const UserMailEmbed = new MessageEmbed()
+			.setTitle('User Muted')
+			.setColor('#4B5563')
+			.setDescription(`You have been muted on ${message.guild.name} for the following reasons below.`)
+			.addFields([
+				{ name: 'Reason', value: args.reason, inline: true },
+				{ name: 'Duration', value: `in ${this.client.utilities.formatDuration(ms(args.duration))}`, inline: true },
+				{ name: 'Current Strike Count', value: strikes.length, inline: true },
+				{ name: 'Strike counts exceeding 5 would result in a month ban.', value: '\u200b' }
+			])
+			.setTimestamp()
+			.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+
+		args.user.send('You have been muted, check the following below for more information.', UserMailEmbed);
 
 		const MuteUserSuccess = new MessageEmbed()
 			.setTitle('Successfully muted user.')
-			.setAuthor(args.member.tag, args.member.displayAvatarURL())
+			.setAuthor(args.user.user.tag, args.user.user.displayAvatarURL())
 			.setColor('#10B981')
-			.setDescription(`${args.member.tag} has been muted successfully with the Punishment ID: ${punishment._id}`)
+			.setDescription(`${args.user.user.tag} has been muted successfully with the Punishment ID: ${punishment._id}, and would last in ${this.client.utilities.formatDuration(ms(args.duration))}`)
 			.setTimestamp()
 			.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
 		message.channel.send(MuteUserSuccess);
 
-		this.util.logger(message, {
-			type: 'MUTE',
-			user: args.member,
-			reason: ms(args.duration),
-			by: message.author
+		this.client.utilities.logger({
+			type: 1,
+			id: punishment._id,
+			user: args.user,
+			reason: args.reason,
+			by: message.author,
+			link: message.url
 		});
 
 		setTimeout(() => {
-			args.member.roles.remove(muteRole);
-			args.member.roles.add(verifiedRole);
+			if (!args.user.roles.cache.has(muteRole.id) && args.user.roles.cache.has(verifiedRole.id)) return;
+
+			console.log('Timeout exceeded');
+
+			const UserUnmuteMailEmbed = new MessageEmbed()
+				.setTitle('User Muted')
+				.setColor('#059669')
+				.setDescription(`You have been unmuted on ${message.guild.name} for the following reasons below.`)
+				.addFields([
+					{ name: 'Reason', value: 'Galaxa Auto Ummute', inline: true }
+				])
+				.setTimestamp()
+				.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+
+			args.user.send('You have been unmuted, check the following below for more information.', UserUnmuteMailEmbed);
+
+			this.client.utilities.logger({
+				type: 2,
+				id: punishment._id,
+				user: args.user,
+				reason: 'Galaxa Auto Unmute',
+				by: this.client.user,
+				link: message.url
+			});
+
+			args.user.roles.remove(muteRole);
+			args.user.roles.add(verifiedRole);
 		}, ms(args.duration));
 	}
 

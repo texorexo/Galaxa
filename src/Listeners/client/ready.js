@@ -12,7 +12,7 @@ module.exports = class Ready extends Listener {
 	}
 	async exec() {
 		this.client.user.setActivity(`Galaxa 3 Beta | Current Time ${moment().format('hh:mm')}`);
-		console.log(`${moment().format('MM/DD/YY hh:mm:ss')} => [${chalk.green.bold('READY')}] 🤖 Galxa 3 is now online.`);
+		console.log(`${moment().format('MM/DD/YY hh:mm:ss')} => [${chalk.green.bold('READY')}] 🤖 Galaxa 3 is now online.`);
 	}
 
 };

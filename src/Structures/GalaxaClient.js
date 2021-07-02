@@ -1,6 +1,9 @@
 const { AkairoClient, ListenerHandler, CommandHandler } = require('discord-akairo');
 const Util = require('./Utils');
 const { join } = require('path');
+const moment = require('moment');
+const chalk = require('chalk');
+const mongoose = require('mongoose');
 
 module.exports = class GalaxaClient extends AkairoClient {
 
@@ -14,7 +17,7 @@ module.exports = class GalaxaClient extends AkairoClient {
 			}
 		);
 
-		this.client.util = new Util(this.client);
+		this.utilities = new Util(this);
 
 		this.validate(options);
 
@@ -32,24 +35,6 @@ module.exports = class GalaxaClient extends AkairoClient {
 		this.ListenerHandler = new ListenerHandler(this, {
 			directory: join(__dirname, '..', 'Listeners')
 		});
-
-		// this.on('message', async (message) => {
-		// 	const MentionRegex = RegExp(`^<@!${this.user.id}>$`);
-		// 	const MentionPrefixRegex = RegExp(`^<@!${this.user.id}> `);
-
-		// 	if (!message.guild || message.author.bot) return;
-
-		// 	if (message.content.match(MentionRegex)) message.channel.send(`Hi! My name is Galaxa! Pleasure to meet you. My current prefix is \`${this.prefix}\``);
-
-		// 	const prefix = message.content.match(MentionPrefixRegex) ? message.content.match(MentionPrefixRegex)[0] : this.prefix;
-
-		// 	// eslint-disable-next-line no-unused-vars
-		// 	const [cmd, ...args] = message.content.slice(prefix.length).trim().split(/ +/g);
-		// 	const command = this.commands.get(cmd.toLowerCase()) || this.commands.get(this.aliases.get(cmd.toLowerCase()));
-		// 	if (command) {
-		// 		command.run(message, args);
-		// 	}
-		// });
 
 		this.CommandHandler.useListenerHandler(this.ListenerHandler);
 		this.CommandHandler.loadAll();
@@ -69,6 +54,13 @@ module.exports = class GalaxaClient extends AkairoClient {
 	}
 
 	async start(token = this.token) {
+		await mongoose.connect('mongodb+srv://dbAdmin:hcsg8pCdlISFehFu@galaxa.lmcuv.mongodb.net/main?retryWrites=true&w=majority', {
+			useNewUrlParser: true,
+			useUnifiedTopology: true
+		}).then(() => {
+			console.log(`${moment().format('MM/DD/YY hh:mm:ss')} => [${chalk.blue.bold('CONNECTED')}] 🔌 Connected to the database.`);
+		});
+
 		super.login(token);
 	}
 
