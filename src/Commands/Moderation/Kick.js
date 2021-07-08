@@ -5,13 +5,13 @@ const { create } = require('sourcebin');
 const moment = require('moment');
 const Punishment = require('../../MongoDB/Models/Punishments');
 
-module.exports = class Warn extends Command {
+module.exports = class Kick extends Command {
 
 	constructor() {
-		super('warn', {
-			aliases: ['warn', 'inform', 'strike'],
+		super('kick', {
+			aliases: ['boot', 'remove'],
 			description: {
-				content: 'Warns selected users in the server.',
+				content: 'kicks selected users out the server.',
 				usage: '<user> [reason | predefined reason code]'
 			},
 			channel: 'guild',
@@ -131,20 +131,10 @@ module.exports = class Warn extends Command {
 				.setTimestamp()
 				.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
 			message.reply(StrikeWarning);
-		} else if ((strikes.length + 1) >= 4) {
-			const StrikeWarning = new MessageEmbed()
-				.setTitle('Selected User has reached 4 strikes')
-				.setColor('#FBBF24')
-				.setAuthor(args.user.tag, args.user.user.displayAvatarURL())
-				.setDescription('The selected user has already recieved 4 strikes within the last 2 weeks. Suggested to kick the user.')
-				.addField('User\'s current strike count', strikes.length)
-				.setTimestamp()
-				.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
-			message.reply(StrikeWarning);
 		}
 
 		const punishment = new Punishment({
-			type: 0,
+			type: 3,
 			user: args.user.id,
 			by: message.author.id,
 			reason: args.reason
@@ -186,6 +176,8 @@ module.exports = class Warn extends Command {
 			.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
 
 		args.user.send('You have been warned, check the following below for more information.', UserMailEmbed);
+
+        args.user.kick()
 
 		const UnmuteUserSuccess = new MessageEmbed()
 			.setTitle('Successfully warned user.')

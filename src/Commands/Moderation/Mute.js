@@ -83,6 +83,16 @@ module.exports = class Mute extends Command {
 			);
 		}
 
+		if (args.user.roles.cache.has(role => role.name === 'Staff') && message.author.roles.cache.has(role => role.name === 'Ship Captain')) {
+			const UserIsStaffException = new MessageEmbed()
+				.setTitle('User selected is staff.')
+				.setColor('#db1c07')
+				.setDescription('The selected user is a staff member, therefore they are immune from being Warned. Nice one though.')
+				.setTimestamp()
+				.setFooter('Galaxa 3 | Under GPLv3', this.client.user.user.displayAvatarURL());
+			message.reply('Nice one.', UserIsStaffException);
+		}
+
 		// Args Validation
 		if (args.user === message.author) {
 			const SeletctedUserIsAuthorError = new MessageEmbed()
@@ -208,6 +218,7 @@ module.exports = class Mute extends Command {
 		const punishment = new Punishment({
 			type: 1,
 			user: args.user.id,
+			by: message.author.id,
 			reason: args.reason
 		});
 
@@ -216,7 +227,24 @@ module.exports = class Mute extends Command {
 
 		await punishment.save((err) => {
 			if (err) {
-				throw new Error(err);
+				create([
+					{
+						content: err,
+						language: 'text'
+					}
+				], {
+					title: 'Error Exception at Mute.js',
+					description: 'An error has occured at line 217 at the Mute command file. Error message and stack info is shown below.'
+				}).then(result => {
+					const RoleCreationErrorExeption = new MessageEmbed()
+						.setTitle('RoleCreationErrorExeption: An error occured.')
+						.setColor('#db1c07')
+						.setDescription('An error occured while saving punishment records. More details below.')
+						.addField('Bin Link', result.url)
+						.setTimestamp()
+						.setFooter('Galaxa 3 | Under GPLv3', this.client.user.displayAvatarURL());
+					return message.reply('RoleCreationErrorExeption: An error occured.', RoleCreationErrorExeption);
+				});
 			}
 		});
 
@@ -255,8 +283,6 @@ module.exports = class Mute extends Command {
 
 		setTimeout(() => {
 			if (!args.user.roles.cache.has(muteRole.id) && args.user.roles.cache.has(verifiedRole.id)) return;
-
-			console.log('Timeout exceeded');
 
 			const UserUnmuteMailEmbed = new MessageEmbed()
 				.setTitle('User Muted')
